@@ -20,6 +20,7 @@ class TodoItemCreate(BaseModel):
 
     title: str
     content: str
+    watchers: List[str] | None
 
 
 class TodoItemPartialUpdate(BaseModel):
@@ -28,6 +29,8 @@ class TodoItemPartialUpdate(BaseModel):
     watcher: str | None = None
 
 
-class TodoItem(TodoItemCreate):
+class TodoItem(BaseModel):
     id: int
+    title: str
+    content: str
     watchers: List["RecipientMinimal"]

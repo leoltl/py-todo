@@ -18,7 +18,21 @@ app = FastAPI()
 
 @app.post("/todos/", response_model=TodoItem)
 async def create_todo(todo: TodoItemCreate, session: SessionDep):
-    new_todo = TodoItemBase(**todo.model_dump())
+    new_todo = TodoItemBase(**todo.model_dump(exclude={'watchers'}))
+
+    if todo.watchers and len(todo.watchers):
+        result = await session.execute(
+            select(RecipientBase)
+            .where(RecipientBase.email.in_(todo.watchers))
+        )
+        existing = result.scalars().all()
+        existing_emails = {r.email for r in existing}
+        missing_emails = set(todo.watchers) - existing_emails
+
+        new_recipients = [RecipientBase(email=e) for e in missing_emails]
+        session.add_all(new_recipients)
+        new_todo.watchers = [*existing, *new_recipients]
+
     session.add(new_todo)
     await session.commit()
     await session.refresh(new_todo, attribute_names=['title', 'content', 'watchers'])
@@ -37,7 +51,7 @@ async def read_todos(
 
 
 @app.patch("/todos/{todo_id}", response_model=TodoItem)
-async def set_watchers(
+async def update_todo(
     todo_id: int,
     todo_update: TodoItemPartialUpdate,
     session: SessionDep,
@@ -48,13 +62,18 @@ async def set_watchers(
                 .where(TodoItemBase.id == todo_id)
                 .options(selectinload(TodoItemBase.watchers)))
             ).scalar_one()
+    if todo_update.title is not None:
+        todo.title = todo_update.title
+
+    if todo_update.content is not None:
+        todo.content = todo_update.content
+
     if todo_update.watcher is not None:
-        recipient = (await session
-                     .execute(
-                         select(RecipientBase)
-                         .where(RecipientBase.email == todo_update.watcher)
-                     )
-                     ).scalar_one_or_none() or RecipientBase(email=todo_update.watcher)
+        recipient = (await session.execute(
+            select(RecipientBase)
+            .where(RecipientBase.email == todo_update.watcher)
+        )
+        ).scalar_one_or_none() or RecipientBase(email=todo_update.watcher)
         if recipient not in todo.watchers:
             todo.watchers.append(recipient)
     await session.commit()
