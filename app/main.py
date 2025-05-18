@@ -2,49 +2,39 @@ from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
-from sqlmodel import Field, SQLModel, select
+from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_async_session
 
-class Hero(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    age: int | None = Field(default=None, index=True)
-    secret_name: str
+from app.schemas import TodoItem, TodoItemCreate
+from app.model import TodoItem as TodoItemBase
+
 
 SessionDep = Annotated[AsyncSession, Depends(get_async_session)]
 
 app = FastAPI()
 
-@app.post("/heroes/")
-async def create_hero(hero: Hero, session: SessionDep) -> Hero:
-    session.add(hero)
+
+@app.post("/todos/", response_model=TodoItem)
+async def create_todo(todo: TodoItemCreate, session: SessionDep):
+    new_todo = TodoItemBase(**todo.model_dump())
+    session.add(new_todo)
     await session.commit()
-    await session.refresh(hero)
-    return hero
+    await session.refresh(new_todo)
+    return new_todo
 
 
-@app.get("/heroes/")
-async def read_heroes(
+@app.get("/todos/", response_model=Sequence[TodoItem])
+async def read_todos(
     session: SessionDep,
-) -> Sequence[Hero]:
-    heroes = (await session.execute(select(Hero))).scalars().all()
-    return heroes
+):
+    todos = (await session.execute(select(TodoItemBase))).scalars().all()
+    return todos
 
 
-@app.get("/heroes/{hero_id}")
-async def read_hero(hero_id: int, session: SessionDep) -> Hero:
-    hero = (await session.execute(select(Hero).where(Hero.id == hero_id))).scalar()
-    if not hero:
-        raise HTTPException(status_code=404, detail="Hero not found")
-    return hero
-
-
-@app.delete("/heroes/{hero_id}")
-async def delete_hero(hero_id: int, session: SessionDep):
-    hero = await session.get(Hero, hero_id)
-    if not hero:
-        raise HTTPException(status_code=404, detail="Hero not found")
-    await session.delete(hero)
-    await session.commit()
-    return {"ok": True}
+@app.get("/todos/{todo_id}", response_model=TodoItem)
+async def read_todo(todo_id: int, session: SessionDep):
+    todo = (await session.execute(select(TodoItemBase).where(TodoItemBase.id == todo_id))).scalar()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    return todo
