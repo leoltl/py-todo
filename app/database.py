@@ -1,7 +1,7 @@
 import os
 from typing import AsyncIterator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from app.model import Base
+from app.models import Base
 
 # Load database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL")
