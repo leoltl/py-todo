@@ -4,10 +4,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from app.models import Base
 
 # Load database URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL")
-print(DATABASE_URL)
+HOST = os.getenv("POSTGRES_HOST")
+DB_NAME = os.getenv("POSTGRES_DB")
+USER = os.getenv("POSTGRES_USER")
+PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
-db_connection_str = DATABASE_URL or ""
+db_connection_str = f"postgresql+psycopg://{USER}:{PASSWORD}@{HOST}:{5432}/{DB_NAME}"
 
 async_engine = create_async_engine(
     db_connection_str,
